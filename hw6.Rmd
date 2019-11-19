@@ -10,6 +10,7 @@ library(tidyverse)
 library(rvest)
 library(modelr)
 library(mgcv)
+library(ggplot2)
 knitr::opts_chunk$set(
  echo = TRUE,
  fig.width = 8, 
@@ -57,13 +58,58 @@ mod_select = lm(bwt ~ ., data = birthweight)
 step(mod_select, direction = 'backward')
 ```
 
-Using backward slection, I get a model: `bwt ~ babysex + bhead + blength + delwt + fincome +  gaweeks + mheight + mrace + parity + ppwt + smoken`
+Using backward slection, I get a model: `bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken`
 
 ```{r}
-mod1 = lm(bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken, data = birthweight)
-summary(mod1)
+mod_fit = lm(bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken, data = birthweight)
+summary(mod_fit)
 ```
 
 After checking the siginificance level of each explainitary variable, the final model fitted is: `bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken` with an overall R-squared of 0.7181 which means my model captures 71.81% of variability and the p-value of overall F test being significantly less than 0.05. 
+
+## Model residuals against Fitted values
+```{r}
+birthweight %>% 
+  add_predictions(model = mod_fit, var = "pred") %>% 
+  add_residuals(model = mod_fit, var = "resid") %>%
+  ggplot(aes(x = pred, y = resid)) + 
+  geom_point(alpha = 0.2, color = "2") +
+  geom_smooth(se = F, color = "4") + 
+  labs(title = "Model residuals against Fitted values", 
+       y = "Residuals",
+       x = "Fitted Value",
+       caption = "Birthweight")
+```
+
+## Model comparing 
+```{r}
+set.seed(10)
+# cv split
+cv_birthw <- birthweight %>% 
+  crossv_mc(10) %>% 
+  mutate(
+    train=map(train,as_tibble),
+    test=map(test,as_tibble)
+)
+# compared two reference mods and my own model
+cv_birthw <-  
+  cv_birthw %>% 
+  mutate(mod0  = map(train, ~lm(bwt ~ blength+gaweeks, data = .)),
+         mod1  = map(train, ~lm(bwt ~ babysex*bhead*blength, data = .)),
+         mod2  = map(train, ~lm(bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken, data = .))
+         ) %>% 
+  mutate(rmse_mod0 = map2_dbl(mod0, test, ~rmse(model = .x, data = .y)),
+         rmse_mod1 = map2_dbl(mod1, test, ~rmse(model = .x, data = .y)),
+         rmse_mod2 = map2_dbl(mod2, test, ~rmse(model = .x, data = .y))
+         ) 
+  
+
+# Keep CV results
+cv_output <- cv_birthw[,c("rmse_mod0","rmse_mod1","rmse_mod2")]
+sapply(cv_output,mean) 
+```
+
+Mod2 which is the our fitted model in the first part of the problem has the lowest rmse. Thus our model `bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken`has a best fit amoung those three models.
+
 
 
