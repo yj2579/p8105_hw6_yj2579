@@ -1,0 +1,69 @@
+---
+title: "hw6_yj2579"
+author: "Yingxi Ji"
+date: "11/18/2019"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(rvest)
+library(modelr)
+library(mgcv)
+knitr::opts_chunk$set(
+ echo = TRUE,
+ fig.width = 8, 
+ fig.height = 6,
+ fig.asp = 0.6,
+ out.width = "90%")
+theme_set(theme_bw() + 
+          theme(legend.position = "bottom",
+                legend.title = element_blank(),
+                plot.title = element_text(hjust = 0.5, size = 15),
+                plot.subtitle = element_text(hjust = 0.5, size = 12)))
+
+```
+
+# Problem 1
+
+## load the data
+```{r}
+birthweight = read_csv("./birthweight.csv") %>%
+      janitor::clean_names() %>% 
+    mutate(babysex = factor(babysex,level=c(1:2),
+                    labels = c("male","female")),
+           frace = factor(frace,level=c(1:4,8,9),
+                    labels = c("White","Black",
+                               "Asian","Puerto Rican",
+                               "Other","Unknown")),
+           malform = factor(malform,level=c(0:1),
+                    labels = c("absent","present")),
+           mrace = factor(mrace,level=c(1:4,8),
+                    labels = c("White","Black",
+                               "Asian","Puerto Rican",
+                               "Other")))
+```
+
+## Checking NA
+```{r}
+sapply(birthweight, function(na) sum(is.na(na))) 
+```
+
+The `birth_weight` dataset consists of `r nrow(birthweight)` children and `r ncol(birthweight)` variables. The dataset does not have any NA.
+
+## model buliding
+```{r}
+mod_select = lm(bwt ~ ., data = birthweight)
+step(mod_select, direction = 'backward')
+```
+
+Using backward slection, I get a model: `bwt ~ babysex + bhead + blength + delwt + fincome +  gaweeks + mheight + mrace + parity + ppwt + smoken`
+
+```{r}
+mod1 = lm(bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken, data = birthweight)
+summary(mod1)
+```
+
+After checking the siginificance level of each explainitary variable, the final model fitted is: `bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken` with an overall R-squared of 0.7181 which means my model captures 71.81% of variability and the p-value of overall F test being significantly less than 0.05. 
+
+
