@@ -103,13 +103,102 @@ cv_birthw <-
          rmse_mod2 = map2_dbl(mod2, test, ~rmse(model = .x, data = .y))
          ) 
   
-
 # Keep CV results
 cv_output <- cv_birthw[,c("rmse_mod0","rmse_mod1","rmse_mod2")]
 sapply(cv_output,mean) 
 ```
 
-Mod2 which is the our fitted model in the first part of the problem has the lowest rmse. Thus our model `bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken`has a best fit amoung those three models.
+Mod2 which is the our fitted model in the first part of the problem has the lowest rmse. Thus our model `bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken`has a best fit among those three models.
 
 
+# Problem 2 
+## Load the data
+```{r}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
+
+This is a dataset with `r nrow(weather_df)` observations and `r ncol(weather_df)` variables.
+
+## SLR with tmax as the response and tmin as the predictor
+```{r simple linear regression}
+weather_slr = lm(tmax ~ tmin, data = weather_df)
+summary(weather_slr)
+```
+
+we can get: $$\widehat{T_{max}} = 7.21 + 1.04*T_{min}$$
+
+## R-squared and log(beta0*beta1) by bootstrap samples
+```{r}
+# function for bootstrap
+DSbootstrap = function(x){
+  mod_1 =
+    x %>% 
+    broom::tidy()
+  
+  mod_2 =
+    x %>%
+    broom::glance()
+  
+  tibble(
+    r_squared = pull(mod_2, adj.r.squared),
+    log_beta0_beta1 = log(pull(mod_1, estimate)[1] * pull(mod_1, estimate)[2]))
+}
+
+# Caculate the estimates for r_squared and log_beta0_beta1 using bootstrap samples
+boot_straps = 
+ weather_df %>% 
+  modelr::bootstrap(n = 5000) %>% 
+  mutate(
+    models = map(strap, ~ lm(tmax ~ tmin, data = .x)),
+    results = map(models, DSbootstrap)) %>% 
+  unnest(results) %>%
+  select(-strap, -models) 
+
+
+boot_straps[1:6,] %>%
+  rename("SLR model" = `.id`) %>%
+  knitr::kable(align = 'c')
+
+```
+
+The table above showing the estimates of R-squared and log(beta0*beta1)
+
+## R_squared
+```{r}
+boot_straps %>% 
+  ggplot(aes(x = r_squared)) +
+  geom_density(fill = "sky blue", alpha = .8, size = 2) +
+  labs(title = "Distribution of R_squared", 
+       x = "R_squared",
+       y = "Density",
+       caption = "Weather_df")
+
+quantile(boot_straps$r_squared, c(.025, .975))
+```
+
+There is a little skewness but that is so small so we can ignore it and stick with this SLR.The left tail tells us that there may have more small values rather than large values. The 95% CI is (0.89347, 0.92683)
+
+## log(beta0beta1)
+```{r}
+boot_straps %>% 
+  ggplot(aes(x = log_beta0_beta1)) +
+  geom_density(fill = "light yellow", alpha = .8, size = 2) +
+  labs(title = "Distribution of log(beta0*beta1)", 
+       x = "log(beta0*beta1)",
+       y = "Density",
+       caption = "Weather_df")
+quantile(boot_straps$log_beta0_beta1, c(.025, .975))
+```
+
+The distribution is roughly normally distributed. We are 95% confident to say that the log(beta0beta1) will fall into the interval (1.966392, 2.057966).
 
