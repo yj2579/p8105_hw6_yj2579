@@ -54,6 +54,7 @@ The `birth_weight` dataset consists of `r nrow(birthweight)` children and `r nco
 
 ## model buliding
 ```{r}
+## stepwise
 mod_select = lm(bwt ~ ., data = birthweight)
 step(mod_select, direction = 'backward')
 ```
@@ -102,11 +103,15 @@ cv_birthw <-
          rmse_mod1 = map2_dbl(mod1, test, ~rmse(model = .x, data = .y)),
          rmse_mod2 = map2_dbl(mod2, test, ~rmse(model = .x, data = .y))
          ) 
-  
 # Keep CV results
 cv_output <- cv_birthw[,c("rmse_mod0","rmse_mod1","rmse_mod2")]
 sapply(cv_output,mean) 
+
 ```
+
+* `model_fitted`: `bwt ~ babysex + bhead + blength + delwt + fincome +  gaweeks + mheight + mrace + parity + ppwt + smoken`
+* `model_1`: `bwt ~ blength + gaweeks`
+* `model_2`: `bwt ~ babysex + blength + bhead + babysex * blength + babysex * bhead + blength * bhead + babysex * blength * bhead`
 
 Mod2 which is the our fitted model in the first part of the problem has the lowest rmse. Thus our model `bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken`has a best fit among those three models.
 
